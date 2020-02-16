@@ -15,11 +15,14 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
 	"github.com/zmap/zgrab2/lib/http"
+
+	// "golang.org/x/net/http2"
 )
 
 var (
@@ -41,8 +44,10 @@ type Flags struct {
 	zgrab2.TLSFlags
 	Method       string `long:"method" default:"GET" description:"Set HTTP request method type"`
 	Endpoint     string `long:"endpoint" default:"/" description:"Send an HTTP request to an endpoint"`
+	Header       string `long:"header" default:"" description:"Specify a HTTP header to include in request"`
 	UserAgent    string `long:"user-agent" default:"Mozilla/5.0 zgrab/0.x" description:"Set a custom user agent"`
 	RetryHTTPS   bool   `long:"retry-https" description:"If the initial request fails, reconnect and try with HTTPS."`
+	ForceHTTP2   bool   `long:"force-http2" description:"Use http2 transport."`
 	MaxSize      int    `long:"max-size" default:"256" description:"Max kilobytes to read in response to an HTTP request"`
 	MaxRedirects int    `long:"max-redirects" default:"0" description:"Max number of redirects to follow"`
 
@@ -261,7 +266,7 @@ func (scan *scan) getCheckRedirect() func(*http.Request, *http.Response, []*http
 			readLen = res.ContentLength
 		}
 		io.CopyN(b, res.Body, readLen)
-		res.BodyText = b.String()
+		res.BodyText = b.Bytes()
 		if len(res.BodyText) > 0 {
 			m := sha256.New()
 			m.Write(b.Bytes())
@@ -310,6 +315,11 @@ func (scanner *Scanner) newHTTPScan(t *zgrab2.ScanTarget, useHTTPS bool) *scan {
 		client:         http.MakeNewClient(),
 		globalDeadline: time.Now().Add(scanner.config.Timeout),
 	}
+
+	// if scanner.config.ForceHTTP2 {
+	// 	ret.transport = &http2.Transport{}
+	// }
+
 	ret.transport.DialTLS = ret.getTLSDialer(t)
 	ret.transport.DialContext = ret.dialContext
 	ret.client.UserAgent = scanner.config.UserAgent
@@ -342,6 +352,12 @@ func (scan *scan) Grab() *zgrab2.ScanError {
 	}
 	// TODO: Headers from input?
 	request.Header.Set("Accept", "*/*")
+
+	if scan.scanner.config.Header != "" {
+		parts := strings.Split(scan.scanner.config.Header, "=")
+		request.Header.Set(parts[0], parts[1])
+	}
+
 	resp, err := scan.client.Do(request)
 	if resp != nil && resp.Body != nil {
 		defer resp.Body.Close()
@@ -373,7 +389,7 @@ func (scan *scan) Grab() *zgrab2.ScanError {
 		readLen = resp.ContentLength
 	}
 	io.CopyN(buf, resp.Body, readLen)
-	scan.results.Response.BodyText = buf.String()
+	scan.results.Response.BodyText = buf.Bytes()
 	if len(scan.results.Response.BodyText) > 0 {
 		m := sha256.New()
 		m.Write(buf.Bytes())

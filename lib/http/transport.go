@@ -211,20 +211,23 @@ func (t *Transport) onceSetNextProtoDefaults() {
 		// Transport.
 		return
 	}
-	if t.TLSClientConfig != nil || t.Dial != nil || t.DialTLS != nil {
-		// Be conservative and don't automatically enable
-		// http2 if they've specified a custom TLS config or
-		// custom dialers. Let them opt-in themselves via
-		// http2.ConfigureTransport so we don't surprise them
-		// by modifying their tls.Config. Issue 14275.
-		return
-	}
+	// if t.TLSClientConfig != nil || t.Dial != nil || t.DialTLS != nil {
+	// 	log.Println("conservative h2 stuff")
+	// 	// Be conservative and don't automatically enable
+	// 	// http2 if they've specified a custom TLS config or
+	// 	// custom dialers. Let them opt-in themselves via
+	// 	// http2.ConfigureTransport so we don't surprise them
+	// 	// by modifying their tls.Config. Issue 14275.
+	// 	return
+	// }
+	// log.Println("h2 stuff", t)
 	t2, err := http2configureTransport(t)
 	if err != nil {
 		log.Printf("Error enabling Transport HTTP/2 support: %v", err)
 		return
 	}
 	t.h2transport = t2
+	//log.Println("h2 transport configured:", t2)
 
 	// Auto-configure the http2.Transport's MaxHeaderListSize from
 	// the http.Transport's MaxResponseHeaderBytes. They don't

@@ -186,7 +186,7 @@ func (scanner *Scanner) Protocol() string {
 // FIXME: Add some error handling somewhere in here, unless errors should just be ignored and we get what we get
 func storeBody(res *http.Response, scanner *Scanner) {
 	b := bufferFromBody(res, scanner)
-	res.BodyText = b.String()
+	res.BodyText = b.Bytes()
 	if len(res.BodyText) > 0 {
 		m := sha256.New()
 		m.Write(b.Bytes())
@@ -442,7 +442,7 @@ func (scanner *Scanner) augmentWithCUPSData(scan *scan, target *zgrab2.ScanTarge
 	}
 	// Store data into BodyText and BodySHA256 of cupsResp
 	storeBody(cupsResp, scanner)
-	if versionNotSupported(scan.results.CUPSResponse.BodyText) {
+	if versionNotSupported(string(scan.results.CUPSResponse.BodyText)) {
 		return zgrab2.NewScanError(zgrab2.SCAN_APPLICATION_ERROR, ErrVersionNotSupported)
 	}
 
@@ -527,7 +527,7 @@ func (scanner *Scanner) Grab(scan *scan, target *zgrab2.ScanTarget, version *ver
 		return err
 	}
 	storeBody(resp, scanner)
-	if versionNotSupported(scan.results.Response.BodyText) {
+	if versionNotSupported(string(scan.results.Response.BodyText)) {
 		return zgrab2.NewScanError(zgrab2.SCAN_APPLICATION_ERROR, ErrVersionNotSupported)
 	}
 

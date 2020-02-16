@@ -58,7 +58,7 @@ type Response struct {
 	// The Body is automatically dechunked if the server replied
 	// with a "chunked" Transfer-Encoding.
 	Body       io.ReadCloser   `json:"-"`
-	BodyText   string          `json:"body,omitempty"`
+	BodyText   []byte          `json:"body,omitempty"`
 	BodySHA256 PageFingerprint `json:"body_sha256,omitempty"`
 
 	// ContentLength records the length of the associated content. The
