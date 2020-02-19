@@ -113,6 +113,19 @@ func (target *ScanTarget) OpenUDP(flags *BaseFlags, udp *UDPFlags) (net.Conn, er
 	return NewTimeoutConnection(nil, conn, flags.Timeout, 0, 0, flags.BytesReadLimit), nil
 }
 
+func buildGrabFromInputResponse(t *ScanTarget, responses map[string]ScanResponse) *Grab {
+	var ipstr string
+
+	if t.IP != nil {
+		ipstr = t.IP.String()
+	}
+	return &Grab{
+		IP:     ipstr,
+		Domain: t.Domain,
+		Data:   responses,
+	}
+}
+
 // grabTarget calls handler for each action
 func grabTarget(input ScanTarget, m *Monitor) []byte {
 	moduleResult := make(map[string]ScanResponse)
@@ -140,15 +153,7 @@ func grabTarget(input ScanTarget, m *Monitor) []byte {
 		}
 	}
 
-	var ipstr string
-	if input.IP == nil {
-		ipstr = ""
-	} else {
-		s := input.IP.String()
-		ipstr = s
-	}
-
-	raw := Grab{IP: ipstr, Domain: input.Domain, Data: moduleResult}
+	raw := buildGrabFromInputResponse(&input, moduleResult)
 
 	var outputData interface{} = raw
 
