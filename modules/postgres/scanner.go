@@ -72,7 +72,7 @@ type Results struct {
 
 	// BackendKeyData is the value of the 'K'-type packet returned by the
 	// server after the final StartupMessage.
-	BackendKeyData *BackendKeyData `json:"backend_key_data,omitempty" zgrab:"debug"`
+	BackendKeyData *BackendKeyData `json:"backend_key_data,omitempty" groups:"debug"`
 
 	// TransactionStatus is the value of the 'Z'-type packet returned by
 	// the server after the final StartupMessage.

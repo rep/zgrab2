@@ -780,7 +780,7 @@ type Results struct {
 
 	// TimeResponse is the full header returned by the get time call.
 	// Absent if --skip-get-time is set. Debug only.
-	TimeResponse *NTPHeader `json:"time_response,omitempty" zgrab:"debug"`
+	TimeResponse *NTPHeader `json:"time_response,omitempty" groups:"debug"`
 
 	// MonListResponse is the raw data returned by the call to monlist.
 	// Only present if --monlist is set.
@@ -788,7 +788,7 @@ type Results struct {
 
 	// MonListHeader is the header returned by the call to monlist.
 	// Only present if --monlist is set. Debug only.
-	MonListHeader *PrivatePacketHeader `json:"monlist_header,omitempty" zgrab:"debug"`
+	MonListHeader *PrivatePacketHeader `json:"monlist_header,omitempty" groups:"debug"`
 }
 
 // Flags holds the command-line flags for the scanner.

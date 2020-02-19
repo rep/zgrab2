@@ -27,16 +27,16 @@ type ScanResults struct {
 
 	// ConnectionID is the server's internal identifier for this client's
 	// connection, sent in the initial HandshakePacket.
-	ConnectionID uint32 `json:"connection_id,omitempty" zgrab:"debug"`
+	ConnectionID uint32 `json:"connection_id,omitempty" groups:"debug"`
 
 	// AuthPluginData is optional plugin-specific data, whose meaning
 	// depends on the value of AuthPluginName. Returned in the initial
 	// HandshakePacket.
-	AuthPluginData []byte `json:"auth_plugin_data,omitempty" zgrab:"debug"`
+	AuthPluginData []byte `json:"auth_plugin_data,omitempty" groups:"debug"`
 
 	// CharacterSet is the identifier for the character set the server is
 	// using. Returned in the initial HandshakePacket.
-	CharacterSet byte `json:"character_set,omitempty" zgrab:"debug"`
+	CharacterSet byte `json:"character_set,omitempty" groups:"debug"`
 
 	// StatusFlags is the set of status flags the server returned in the
 	// initial HandshakePacket. Each true entry in the map corresponds to
@@ -52,7 +52,7 @@ type ScanResults struct {
 
 	// AuthPluginName is the name of the authentication plugin, returned
 	// in the initial HandshakePacket.
-	AuthPluginName string `json:"auth_plugin_name,omitempty" zgrab:"debug"`
+	AuthPluginName string `json:"auth_plugin_name,omitempty" groups:"debug"`
 
 	// ErrorCode is only set if there is an error returned by the server,
 	// for example if the scanner is not on the allowed hosts list.
@@ -67,7 +67,7 @@ type ScanResults struct {
 
 	// RawPackets contains the base64 encoding of all packets sent and
 	// received during the scan.
-	RawPackets []string `json:"raw_packets,omitempty" zgrab:"debug"`
+	RawPackets []string `json:"raw_packets,omitempty" groups:"debug"`
 
 	// TLSLog contains the usual shared TLS logs.
 	TLSLog *zgrab2.TLSLog `json:"tls,omitempty"`

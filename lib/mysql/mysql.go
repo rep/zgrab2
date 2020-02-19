@@ -20,10 +20,11 @@ import (
 	"net"
 	"strings"
 
+	"io"
+	"time"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
-	"time"
-	"io"
 )
 
 const (
@@ -226,14 +227,14 @@ type WritablePacket interface {
 // ConnectionLogEntry is an entry in the ConnectionLog.Entry in the ConnectionLog.
 type ConnectionLogEntry struct {
 	// Length is the actual length of the packet body.
-	Length uint32 `zgrab:"debug" json:"length"`
+	Length uint32 `groups:"debug" json:"length"`
 
 	// SequenceNumber is the sequence number included in the packet.
-	SequenceNumber uint8 `zgrab:"debug" json:"sequence_number"`
+	SequenceNumber uint8 `groups:"debug" json:"sequence_number"`
 
 	// Raw is the raw packet body, base64-encoded. May be nil on a read
 	// error.
-	Raw string `zgrab:"debug" json:"raw"`
+	Raw string `groups:"debug" json:"raw"`
 
 	// Parsed is the parsed packet body. May be nil on a decode error.
 	Parsed PacketInfo `json:"parsed,omitempty"`
@@ -253,23 +254,23 @@ type HandshakePacket struct {
 	ServerVersion string `json:"server_version,omitempty"`
 
 	// ConnectionID is the ID used by the server to identify this client.
-	ConnectionID uint32 `zgrab:"debug" json:"connection_id,omitempty"`
+	ConnectionID uint32 `groups:"debug" json:"connection_id,omitempty"`
 
 	// AuthPluginData1 is the first part of the auth-plugin-specific data.
-	AuthPluginData1 []byte `zgrab:"debug" json:"auth_plugin_data_part_1,omitempty"`
+	AuthPluginData1 []byte `groups:"debug" json:"auth_plugin_data_part_1,omitempty"`
 
 	// Filler1 is an unused byte, defined to be 0.
-	Filler1 byte `zgrab:"debug" json:"filler_1,omitempty"`
+	Filler1 byte `groups:"debug" json:"filler_1,omitempty"`
 
 	// At this point in the struct, the lower 16 bits of the
 	// CapabilityFlags appear.
 
 	// CharacterSet is the low 8 bits of the default server character-set
-	CharacterSet byte `zgrab:"debug" json:"character_set,omitempty"`
+	CharacterSet byte `groups:"debug" json:"character_set,omitempty"`
 
 	// ShortHandshake is a synthetic field: if true, none of the following
 	// fields are present.
-	ShortHandshake bool `zgrab:"debug" json:"short_handshake"`
+	ShortHandshake bool `groups:"debug" json:"short_handshake"`
 
 	// StatusFlags is a bit field giving the server's status.
 	StatusFlags uint16 `json:"status_flags,omitempty"`
@@ -279,26 +280,26 @@ type HandshakePacket struct {
 
 	// CapabilityFlags the combined capability flags, which tell what
 	// the server can do (e.g. whether it supports SSL).
-	CapabilityFlags uint32 `json:"capability_flags,omitempty"`
+	CapabilityFlags uint32 `groups:"debug" json:"capability_flags,omitempty"`
 
 	// AuthPluginDataLen is the length of the full auth-plugin-specific
 	// data (so len(AuthPluginData1) + len(AuthPluginData2) =
 	// AuthPluginDataLen)
-	AuthPluginDataLen byte `zgrab:"debug" json:"auth_plugin_data_len,omitempty"`
+	AuthPluginDataLen byte `groups:"debug" json:"auth_plugin_data_len,omitempty"`
 
 	// The following field are only present if the CLIENT_SECURE_CONNECTION
 	// capability flag is set:
 
 	// Reserved is defined to be ten bytes of 0x00s.
-	Reserved []byte `zgrab:"debug" json:"reserved,omitempty"`
+	Reserved []byte `groups:"debug" json:"reserved,omitempty"`
 
 	// AuthPluginData2 is the remainder of the auth-plugin-specific data.
 	// Its length is MAX(13, auth_plugin_data_len - 8).
-	AuthPluginData2 []byte `zgrab:"debug" json:"auth_plugin_data_part_2,omitempty"`
+	AuthPluginData2 []byte `groups:"debug" json:"auth_plugin_data_part_2,omitempty"`
 
 	// AuthPluginName is the name of the auth plugin. This determines the
 	// format / interpretation of AuthPluginData.
-	AuthPluginName string `zgrab:"debug" json:"auth_plugin_name,omitempty"`
+	AuthPluginName string `groups:"debug" json:"auth_plugin_name,omitempty"`
 }
 
 // MarshalJSON omits reserved from encoded packet if it is the default
@@ -311,7 +312,7 @@ func (p *HandshakePacket) MarshalJSON() ([]byte, error) {
 	// 	Hack around infinite MarshalJSON loop by aliasing parent type (http://choly.ca/post/go-json-marshalling/)
 	type Alias HandshakePacket
 	return json.Marshal(&struct {
-		ReservedOmitted []byte          `zgrab:"debug" json:"reserved,omitempty"`
+		ReservedOmitted []byte          `groups:"debug" json:"reserved,omitempty"`
 		CapabilityFlags map[string]bool `json:"capability_flags,omitempty"`
 		StatusFlags     map[string]bool `json:"status_flags,omitempty"`
 		*Alias
@@ -363,10 +364,10 @@ func (c *Connection) readHandshakePacket(body []byte) (*HandshakePacket, error) 
 // See e.g. https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
 type OKPacket struct {
 	// Header identifies the packet as an OK_Packet. Either 0x01 or 0xFE.
-	Header byte `zgrab:"debug" json:"header"`
+	Header byte `groups:"debug" json:"header"`
 
 	// AffectedRows gives the number of rows affected by the command.
-	AffectedRows uint64 `zgrab:"debug" json:"affected_rows"`
+	AffectedRows uint64 `groups:"debug" json:"affected_rows"`
 
 	// LastInsertId gives the ID of the last-inserted row.
 	LastInsertId uint64 `json:"last_insert_id"`
@@ -389,7 +390,7 @@ type OKPacket struct {
 	// CLIENT_SESSION_TRACK ClientCapability and the StatusFlags contain
 	// SERVER_SESSION_STATE_CHANGED.
 	// SessionStateChanges gives state information on the session.
-	SessionStateChanges string `zgrab:"debug" json:"session_state_changes,omitempty"`
+	SessionStateChanges string `groups:"debug" json:"session_state_changes,omitempty"`
 }
 
 // MarshalJSON convert the StatusFlags to an set of consts.
@@ -456,7 +457,7 @@ func (c *Connection) readOKPacket(body []byte) (*OKPacket, error) {
 // It is defined at https://web.archive.org/web/20160316124241/https://dev.mysql.com/doc/internals/en/packet-ERRPacket.html
 type ERRPacket struct {
 	// Header identifies the packet as an ERR_Packet; its value is 0xFF.
-	Header byte `zgrab:"debug" json:"header"`
+	Header byte `groups:"debug" json:"header"`
 
 	// ErrorCode identifies the error.
 	ErrorCode uint16 `json:"error_code"`
@@ -465,10 +466,10 @@ type ERRPacket struct {
 	// ClientCapability CLIENT_PROTOCOL_41:
 
 	// SQLStateMarker is a numeric marker of the SQL state.
-	SQLStateMarker string `zgrab:"debug" json:"sql_state_marker,omitempty"`
+	SQLStateMarker string `groups:"debug" json:"sql_state_marker,omitempty"`
 
 	// SQLStateString is a five-character string representation of the SQL state.
-	SQLState string `zgrab:"debug" json:"sql_state,omitempty"`
+	SQLState string `groups:"debug" json:"sql_state,omitempty"`
 
 	// ErrorMessage is a human-readable error message.
 	ErrorMessage string `json:"error_message,omitempty"`
@@ -512,7 +513,7 @@ func (e *ERRPacket) GetErrorID() string {
 func (e *ERRPacket) GetScanError() *zgrab2.ScanError {
 	return &zgrab2.ScanError{
 		Status: zgrab2.SCAN_APPLICATION_ERROR,
-		Err: e,
+		Err:    e,
 	}
 }
 
@@ -526,13 +527,13 @@ type SSLRequestPacket struct {
 
 	// MaxPacketSize specifies the maximum size packets the client expects
 	// to receive.
-	MaxPacketSize uint32 `zgrab:"debug" json:"max_packet_size"`
+	MaxPacketSize uint32 `groups:"debug" json:"max_packet_size"`
 
 	// CharacterSet specifies the client's expected character set.
-	CharacterSet byte `zgrab:"debug" json:"character_set"`
+	CharacterSet byte `groups:"debug" json:"character_set"`
 
 	// Reserved is a 23-byte string of null characters.
-	Reserved []byte `zgrab:"debug" json:"reserved,omitempty"`
+	Reserved []byte `groups:"debug" json:"reserved,omitempty"`
 }
 
 // MarshalJSON omits reserved from encoded packet if it is the default
@@ -545,7 +546,7 @@ func (p *SSLRequestPacket) MarshalJSON() ([]byte, error) {
 	// 	Hack around infinite MarshalJSON loop by aliasing parent type (http://choly.ca/post/go-json-marshalling/)
 	type Alias SSLRequestPacket
 	return json.Marshal(&struct {
-		ReservedOmitted []byte          `zgrab:"debug" json:"reserved,omitempty"`
+		ReservedOmitted []byte          `groups:"debug" json:"reserved,omitempty"`
 		CapabilityFlags map[string]bool `json:"capability_flags"`
 		*Alias
 	}{
@@ -639,7 +640,7 @@ func trunc(body []byte, n int) (result string) {
 	// 16 bytes = 32 bytes hex * 2 + ellipses = 3 * 2 + len("[%d bytes]") = 8 + log10(len - 32)
 	// max len = 24 bits ~= 16 million = 8 digits
 	// = 64 + 6 + 8 + 8 <= 96
-	return fmt.Sprintf("%x...[%d bytes]...%x", body[:16], n - 32, body[n-16:])
+	return fmt.Sprintf("%x...[%d bytes]...%x", body[:16], n-32, body[n-16:])
 }
 
 // Read a packet and sequence identifier off of the given connection
@@ -802,8 +803,8 @@ func readLenInt(body []byte) (uint64, []byte, error) {
 		return uint64(v), body[1:], nil
 	}
 	size := int(v - 0xfa)
-	if bodyLen - 1 < size {
-		return 0, nil, fmt.Errorf("invalid data: first byte=0x%02x, required size=%d, got %d", v, size, bodyLen - 1)
+	if bodyLen-1 < size {
+		return 0, nil, fmt.Errorf("invalid data: first byte=0x%02x, required size=%d, got %d", v, size, bodyLen-1)
 	}
 	switch v {
 	case 0xfb:
@@ -817,7 +818,7 @@ func readLenInt(body []byte) (uint64, []byte, error) {
 		return uint64(binary.LittleEndian.Uint32(body[1:5]) & 0x00ffffff), body[4:], nil
 	case 0xfe:
 		if bodyLen < 9 {
-			return 0, nil, fmt.Errorf("invalid data: first byte=0xfe, required size=8, got %d", bodyLen - 1)
+			return 0, nil, fmt.Errorf("invalid data: first byte=0xfe, required size=8, got %d", bodyLen-1)
 		}
 		// eight little-endian bytes
 		return binary.LittleEndian.Uint64(body[1:9]), body[9:], nil

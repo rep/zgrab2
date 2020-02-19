@@ -6,15 +6,16 @@ import (
 	"net"
 	"sync"
 
+	"github.com/hashicorp/go-version"
+	"github.com/liip/sheriff"
 	log "github.com/sirupsen/logrus"
-	"github.com/zmap/zgrab2/lib/output"
 )
 
 // Grab contains all scan responses for a single host
 type Grab struct {
-	IP     string                  `json:"ip,omitempty"`
-	Domain string                  `json:"domain,omitempty"`
-	Data   map[string]ScanResponse `json:"data,omitempty"`
+	IP     string                  `json:"ip,omitempty" groups:"normal"`
+	Domain string                  `json:"domain,omitempty" groups:"normal"`
+	Data   map[string]ScanResponse `json:"data,omitempty" groups:"normal"`
 }
 
 // ScanTarget is the host that will be scanned
@@ -113,6 +114,21 @@ func (target *ScanTarget) OpenUDP(flags *BaseFlags, udp *UDPFlags) (net.Conn, er
 	return NewTimeoutConnection(nil, conn, flags.Timeout, 0, 0, flags.BytesReadLimit), nil
 }
 
+func encodeGrab(g *Grab, debug bool) ([]byte, error) {
+	groups := []string{"normal"}
+	log.Warn(groups)
+	v, _ := version.NewVersion("0.0.0")
+	o := &sheriff.Options{
+		Groups:     groups,
+		ApiVersion: v,
+	}
+	data, err := sheriff.Marshal(o, g)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(data)
+}
+
 func buildGrabFromInputResponse(t *ScanTarget, responses map[string]ScanResponse) *Grab {
 	var ipstr string
 
@@ -154,23 +170,7 @@ func grabTarget(input ScanTarget, m *Monitor) []byte {
 	}
 
 	raw := buildGrabFromInputResponse(&input, moduleResult)
-
-	var outputData interface{} = raw
-
-	if !includeDebugOutput() {
-		// If the caller doesn't explicitly request debug data, strip it out.
-		// Take advantage of the fact that we can skip the (expensive) call to
-		// process if debug output is included (TODO: until Process does anything else)
-		processor := output.Processor{Verbose: false}
-		stripped, err := processor.Process(raw)
-		if err != nil {
-			log.Debugf("Error processing results: %v", err)
-			stripped = raw
-		}
-		outputData = stripped
-	}
-
-	result, err := json.Marshal(outputData)
+	result, err := encodeGrab(raw, includeDebugOutput())
 	if err != nil {
 		log.Fatalf("unable to marshal data: %s", err)
 	}

@@ -32,7 +32,7 @@ type ScanResults struct {
 
 	// PreloginOptions are the raw key-value pairs returned by the server in
 	// response to the PRELOGIN call. Debug only.
-	PreloginOptions *PreloginOptions `json:"prelogin_options,omitempty" zgrab:"debug"`
+	PreloginOptions *PreloginOptions `json:"prelogin_options,omitempty" groups:"debug"`
 
 	// EncryptMode is the mode negotiated with the server.
 	EncryptMode *EncryptMode `json:"encrypt_mode,omitempty"`

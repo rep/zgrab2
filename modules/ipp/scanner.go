@@ -58,12 +58,12 @@ type scan struct {
 // ScanResults instances are returned by the module's Scan function.
 type ScanResults struct {
 	//TODO: ?Include the request sent as well??
-	Response     *http.Response `json:"response,omitempty" zgrab:"debug"`
-	CUPSResponse *http.Response `json:"cups_response,omitempty" zgrab:"debug"`
+	Response     *http.Response `json:"response,omitempty" groups:"debug"`
+	CUPSResponse *http.Response `json:"cups_response,omitempty" groups:"debug"`
 
 	// RedirectResponseChain is non-empty if the scanner follows a redirect.
 	// It contains all redirect responses prior to the final response.
-	RedirectResponseChain []*http.Response `json:"redirect_response_chain,omitempty" zgrab:"debug"`
+	RedirectResponseChain []*http.Response `json:"redirect_response_chain,omitempty" groups:"debug"`
 
 	MajorVersion  *int8  `json:"version_major,omitempty"`
 	MinorVersion  *int8  `json:"version_minor,omitempty"`

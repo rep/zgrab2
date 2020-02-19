@@ -3,6 +3,8 @@ module github.com/zmap/zgrab2
 go 1.12
 
 require (
+	github.com/hashicorp/go-version v1.2.0
+	github.com/liip/sheriff v0.0.0-20190308094614-91aa83a45a3d
 	github.com/prometheus/client_golang v1.1.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/zmap/zcrypto v0.0.0-20190729165852-9051775e6a2e
