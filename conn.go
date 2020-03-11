@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math/rand"
 	"net"
 	"time"
 
@@ -43,6 +44,10 @@ var (
 // ErrReadLimitExceeded is returned / panic'd from Read if the read limit is exceeded when the
 // ReadLimitExceededAction is error / panic.
 var ErrReadLimitExceeded = errors.New("read limit exceeded")
+
+func init() {
+	rand.Seed(time.Now().Unix())
+}
 
 // TimeoutConnection wraps an existing net.Conn connection, overriding the Read/Write methods to use the configured timeouts
 // TODO: Refactor this into TimeoutConnection, BoundedReader, LoggedReader, etc
@@ -300,7 +305,11 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 	d.Dialer.KeepAlive = d.Timeout
 
 	// Copy over the source IP if set, or nil
-	d.Dialer.LocalAddr = config.localAddr
+	if len(config.localAddrs) > 0 {
+		d.Dialer.LocalAddr = config.localAddrs[rand.Intn(len(config.localAddrs))]
+	} else {
+		d.Dialer.LocalAddr = config.localAddr
+	}
 
 	dialContext, cancelDial := context.WithTimeout(ctx, d.Dialer.Timeout)
 	defer cancelDial()

@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"runtime"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -32,6 +33,7 @@ type Config struct {
 	inputTargets       InputTargetsFunc
 	outputResults      OutputResultsFunc
 	localAddr          *net.TCPAddr
+	localAddrs         []*net.TCPAddr
 }
 
 // SetInputFunc sets the target input function to the provided function.
@@ -65,11 +67,23 @@ func validateFrameworkConfiguration() {
 	SetInputFunc(InputTargetsCSV)
 
 	if config.LocalAddress != "" {
-		parsed := net.ParseIP(config.LocalAddress)
-		if parsed == nil {
-			log.Fatalf("Error parsing local interface %s as IP", config.LocalAddress)
+		if strings.Index(config.LocalAddress, "-") != -1 {
+			parts := strings.Split(config.LocalAddress, "-")
+			start := net.ParseIP(parts[0])
+			end := net.ParseIP(parts[1])
+			// last octet is index 15 since IP is 16 byte array
+			//  this code only supports ranges within /24, which should be fine :D
+			for i := start[15]; i <= end[15]; i++ {
+				cur := net.IPv4(start[12], start[13], start[14], i)
+				config.localAddrs = append(config.localAddrs, &net.TCPAddr{cur, 0, ""})
+			}
+		} else {
+			parsed := net.ParseIP(config.LocalAddress)
+			if parsed == nil {
+				log.Fatalf("Error parsing local interface %s as IP", config.LocalAddress)
+			}
+			config.localAddr = &net.TCPAddr{parsed, 0, ""}
 		}
-		config.localAddr = &net.TCPAddr{parsed, 0, ""}
 	}
 
 	if config.InputFileName == "-" {
