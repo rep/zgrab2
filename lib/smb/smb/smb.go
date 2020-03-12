@@ -1,6 +1,8 @@
 package smb
 
 import (
+	// "crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -159,8 +161,13 @@ type NegotiateReq struct {
 	Reserved        uint16
 	Capabilities    uint32
 	ClientGuid      []byte `smb:"fixed:16"`
-	ClientStartTime uint64
+	// ClientStartTime uint64
+	ContextOffset   uint32
+	ContextCount    uint16
+	Reserved2       uint16
 	Dialects        []uint16
+	Reserved3       uint32
+	Contexts        []byte
 }
 
 type NegotiateRes struct {
@@ -168,7 +175,7 @@ type NegotiateRes struct {
 	StructureSize        uint16
 	SecurityMode         uint16
 	DialectRevision      uint16
-	Reserved             uint16
+	ContextCount         uint16
 	ServerGuid           []byte `smb:"fixed:16"`
 	Capabilities         uint32
 	MaxTransactSize      uint32
@@ -178,7 +185,7 @@ type NegotiateRes struct {
 	ServerStartTime      uint64
 	SecurityBufferOffset uint16 `smb:"offset:SecurityBlob"`
 	SecurityBufferLength uint16 `smb:"len:SecurityBlob"`
-	Reserved2            uint32
+	ContextOffset        uint32
 	SecurityBlob         *gss.NegTokenInit
 }
 
@@ -300,17 +307,35 @@ func (s *Session) NewNegotiateReq() NegotiateReq {
 
 	dialects := []uint16{
 		uint16(DialectSmb_2_1),
+		uint16(DialectSmb_3_0),
+		uint16(DialectSmb_3_0_2),
+		uint16(DialectSmb_3_1_1),
 	}
+	guid := make([]byte, 16)
+	// rand.Read(guid)
+	copy(guid, "cve20200796-scan")
+
+	// taken from a smbclient request as i did not want to build it myself
+	//  should probably at least swap out / generate the integrity salt in there
+	// contextblob, _ := hex.DecodeString("0100260000000000010020000100750605ed60889ecb5e79bbe84459c55cd2825106327a6e2e41c5a83fddf2c518000002000600000000000200010002000000" + "03001000" + "00000000" + "0400" + "000000000000" + "0100020003000400" + "05001c00000000003100390032002e003100360038002e003100370038002e0032003100")
+	contextblob, _ := hex.DecodeString("0100260000000000010020000100750605ed60889ecb5e79bbe84459c55cd2825106327a6e2e41c5a83fddf2c518000002000600000000000200010002000000" + "03001000" + "00000000" + "0400" + "000000000000" + "0100020003000400")
 	return NegotiateReq{
 		Header:          header,
 		StructureSize:   36,
 		DialectCount:    uint16(len(dialects)),
-		SecurityMode:    SecurityModeSigningEnabled,
+		// SecurityMode:    SecurityModeSigningEnabled,
+		SecurityMode:    0,
 		Reserved:        0,
+		// Capabilities:    0x7f,
 		Capabilities:    0,
-		ClientGuid:      make([]byte, 16),
-		ClientStartTime: 0,
+		ClientGuid:      guid,
+		ContextOffset:   0x70,
+		ContextCount:    3,
+		Reserved2:       0,
 		Dialects:        dialects,
+		Reserved3:       0,
+		// Reserved4:       0,
+		Contexts:        contextblob,
 	}
 }
 
@@ -320,7 +345,7 @@ func NewNegotiateRes() NegotiateRes {
 		StructureSize:        0,
 		SecurityMode:         0,
 		DialectRevision:      0,
-		Reserved:             0,
+		ContextCount:         0,
 		ServerGuid:           make([]byte, 16),
 		Capabilities:         0,
 		MaxTransactSize:      0,
@@ -330,7 +355,7 @@ func NewNegotiateRes() NegotiateRes {
 		ServerStartTime:      0,
 		SecurityBufferOffset: 0,
 		SecurityBufferLength: 0,
-		Reserved2:            0,
+		ContextOffset:        0,
 		SecurityBlob:         &gss.NegTokenInit{},
 	}
 }

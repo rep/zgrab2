@@ -64,6 +64,13 @@ type NegotiationLog struct {
 	// AuthenticationTypes is a list of OBJECT IDENTIFIERs (in dotted-decimal
 	// format) identifying authentication modes that the server supports.
 	AuthenticationTypes []string `json:"authentication_types,omitempty"`
+
+	// Negotiation Context
+	ContextCount uint16 `json:"context_count,omitempty"`
+	ContextOffset uint32 `json:"context_offset,omitempty"`
+	NegotiationContexts []string `json:"negotiation_contexts,omitempty"`
+	NegotiationNetname string `json:"negotiation_netname,omitempty"`
+	NegotiationCompression []uint16 `json:"negotiation_compression,omitempty"`
 }
 
 // SessionSetupLog contains the relevant parts of the first session setup
@@ -110,6 +117,14 @@ const (
 	SMB2_CAP_PERSISTENT_HANDLES = 0x00000010 // Persistent handles
 	SMB2_CAP_DIRECTORY_LEASING  = 0x00000020 // Directory leasing
 	SMB2_CAP_ENCRYPTION         = 0x00000040 // Encryption support
+)
+
+// Negotiate Context Types
+const (
+	SMB2_NEGCONTEXT_PREAUTH_INTEGRITY_CAPS = 1
+	SMB2_NEGCONTEXT_ENCRYPTION_CAPS        = 2
+	SMB2_NEGCONTEXT_COMPRESSION_CAPS       = 3
+	SMB2_NEGCONTEXT_NETNAME_NEGOTIATE      = 4
 )
 
 type SMBCapabilities struct {
@@ -213,6 +228,16 @@ func GetSMBLog(conn net.Conn, session bool, v1 bool, debug bool) (smbLog *SMBLog
 		err = s.LoggedNegotiateProtocol(session)
 	}
 	return s.Log, err
+}
+
+func uint16array(input []byte) []uint16 {
+	u16 := make([]uint16, len(input)/2)
+
+	for i := 0; i < len(u16); i++ {
+		u16[i] = uint16(input[i*2]) | (uint16(input[i*2+1]) << 8)
+	}
+
+	return u16
 }
 
 func wstring(input []byte) string {
@@ -371,7 +396,53 @@ func (ls *LoggedSession) LoggedNegotiateProtocol(setup bool) error {
 		Capabilities:    negRes.Capabilities,
 		SystemTime:      getTime(negRes.SystemTime),
 		ServerStartTime: getTime(negRes.ServerStartTime),
+		ContextCount:    negRes.ContextCount,
+		ContextOffset:   negRes.ContextOffset,
 	}
+
+	if negRes.ContextCount > 0 && len(buf) > int(negRes.ContextOffset) {
+		contextbuf := buf[negRes.ContextOffset:]
+
+		var context_types []string
+
+		for len(contextbuf) >= 8 {
+			datalen := contextbuf[2] + (contextbuf[3] << 8)
+			if len(contextbuf) < 8+datalen {
+				break
+			}
+
+			// fmt.Printf("DBG contextbuf len %d %v\n", len(contextbuf), contextbuf[:4])
+			switch contextbuf[0] {
+			case SMB2_NEGCONTEXT_PREAUTH_INTEGRITY_CAPS:
+				context_types = append(context_types, "preauth_integrity")
+			case SMB2_NEGCONTEXT_ENCRYPTION_CAPS:
+				context_types = append(context_types, "encryption")
+			case SMB2_NEGCONTEXT_COMPRESSION_CAPS:
+				context_types = append(context_types, "compression")
+				algos := uint16array(contextbuf[10:8+datalen])
+				// ugly, but wtf is this encoding
+				for algos[0] == 0 {
+					algos = algos[1:]
+				}
+				if len(algos) > 0 {
+					logStruct.NegotiationLog.NegotiationCompression = algos
+				}
+			case SMB2_NEGCONTEXT_NETNAME_NEGOTIATE:
+				context_types = append(context_types, "netname")
+				logStruct.NegotiationLog.NegotiationNetname = wstring(contextbuf[8:8+datalen])
+			}
+
+			nextoffset := int(8 + datalen + (8 - (8+datalen) % 8))
+			// fmt.Printf("DBG2 datalength %d startpoint %d contextlen %d\n", datalen, nextoffset, len(contextbuf))
+			if len(contextbuf) < nextoffset {
+				break
+			}
+			contextbuf = contextbuf[nextoffset:]
+		}
+
+		logStruct.NegotiationLog.NegotiationContexts = context_types
+	}
+
 	if negRes.Header.Status != StatusOk {
 		return errors.New(fmt.Sprintf("NT Status Error: %d\n", negRes.Header.Status))
 	}
