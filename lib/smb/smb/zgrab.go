@@ -406,7 +406,7 @@ func (ls *LoggedSession) LoggedNegotiateProtocol(setup bool) error {
 		var context_types []string
 
 		for len(contextbuf) >= 8 {
-			datalen := contextbuf[2] + (contextbuf[3] << 8)
+			datalen := int(contextbuf[2] + (contextbuf[3] << 8))
 			if len(contextbuf) < 8+datalen {
 				break
 			}
